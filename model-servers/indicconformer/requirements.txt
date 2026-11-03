@@ -1,0 +1,11 @@
+# IndicConformer speech-to-text server.  Python 3.10-3.12 and the `ffmpeg` program must be installed.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+numpy
+torch>=2.1
+transformers>=4.44,<5
+# Versions pinned exactly as on the model card (https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual).
+# On a machine WITH an NVIDIA GPU also install:   pip install "onnxruntime-gpu==1.20.1"
+onnxruntime==1.20.1
+onnx==1.20.1

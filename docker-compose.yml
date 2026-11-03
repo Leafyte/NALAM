@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - HEALTH_DB_PATH=/app/data/health.db
+      - CLINICIAN_USERNAME=clinician
+      - CLINICIAN_PASSWORD=demo-password
+      - STT_PROVIDER=none
+      - TRANSLATION_PROVIDER=none
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+

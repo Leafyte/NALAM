@@ -1,0 +1,13 @@
+# IndicTrans2 translation server.  Python 3.10-3.12.   pip install -r requirements.txt
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+
+# Models. IMPORTANT: transformers must be 4.x (<4.50). IndicTransToolkit 1.1.1 fails to even import with
+# transformers 5.x ("ImportError: cannot import name 'PreTrainedTokenizerBase' from 'transformers.tokenization_utils'"),
+# and the IndicTrans2 model code
+# was written for 4.x. `pip install transformers` with no pin gives you 5.x, so keep this pin.
+torch>=2.1
+transformers>=4.44,<4.50
+IndicTransToolkit>=1.1.1
+sentencepiece

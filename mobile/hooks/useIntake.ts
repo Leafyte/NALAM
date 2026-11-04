@@ -10,6 +10,7 @@ export function useIntake() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [saveError, setSaveError] = useState<{ code: string; message: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -27,15 +28,20 @@ export function useIntake() {
   const save = useCallback(async (questionId: string, payload: AnswerPayload): Promise<AnswerResult | null> => {
     if (!sessionId) return null;
     setSaving(true);
+    setSaveError(null);
     try {
       const r = await api.submitAnswer(sessionId, { question_id: questionId, language, ...payload });
       if (r.urgent_notice) setUrgent(r.urgent_notice);
       setEditingId(null);
       await refresh();
       return r;
-    } catch (e) { setError(errorMessage(e)); return null; }
-    finally { setSaving(false); }
+    } catch (e) {
+      setSaveError(errorMessage(e));
+      return null;
+    } finally {
+      setSaving(false);
+    }
   }, [sessionId, language, refresh, setUrgent]);
 
-  return { state, loading, saving, error, editingId, setEditingId, save, refresh, sessionId };
+  return { state, loading, saving, error, saveError, setSaveError, editingId, setEditingId, save, refresh, sessionId };
 }

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Health Assistant",
-    "slug": "health-assistant",
+    "name": "Nalam",
+    "slug": "nalam",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,7 +11,7 @@
       "infoPlist": {
         "NSAllowsLocalNetworking": true
       },
-      "bundleIdentifier": "com.example.healthassistant"
+      "bundleIdentifier": "com.nalam.healthassistant"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.example.healthassistant",
+      "package": "com.nalam.healthassistant",
       "usesCleartextTraffic": true
     },
     "web": {
@@ -32,11 +32,11 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Health Assistant to use the microphone so you can answer questions by voice."
+          "microphonePermission": "Allow Nalam to use the microphone so you can answer intake questions by voice in your native language."
         }
       ]
     ],
-    "scheme": "healthassistant",
+    "scheme": "nalam",
     "extra": {
       "note": "Set EXPO_PUBLIC_API_URL to your HTTPS backend for production builds. See README."
     }

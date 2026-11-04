@@ -49,8 +49,11 @@ class AudioError(Exception):
 
 def to_wav16k(data: bytes, suffix: str = ".m4a") -> bytes:
     """Convert any audio to 16 kHz, mono, 16-bit PCM WAV with ffmpeg."""
+    clean_suffix = re.sub(r"[^a-zA-Z0-9_.]", "", suffix or "")
+    if not clean_suffix.startswith("."):
+        clean_suffix = "." + clean_suffix if clean_suffix else ".bin"
     with tempfile.TemporaryDirectory() as d:
-        src, dst = os.path.join(d, "in" + (suffix or ".bin")), os.path.join(d, "out.wav")
+        src, dst = os.path.join(d, "in" + clean_suffix), os.path.join(d, "out.wav")
         with open(src, "wb") as f:
             f.write(data)
         try:

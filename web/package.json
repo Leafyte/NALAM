@@ -1,0 +1,16 @@
+{
+  "name": "nalam-web",
+  "version": "1.0.0",
+  "description": "Nalam - Clinical Triage & Intake Dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit",
+    "compile": "tsc --outDir dist"
+  },
+  "keywords": ["nalam", "clinical", "triage", "healthcare", "fastapi", "indic"],
+  "author": "Nalam Team",
+  "license": "Apache-2.0"
+}
+

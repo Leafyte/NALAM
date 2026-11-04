@@ -1,14 +1,16 @@
-# Multilingual General Healthcare Assistant (educational prototype)
+# Nalam — Multilingual Indic Clinical Intake & Triage OS
 
-A responsive web application and mobile app (React Native + Expo) backed by a FastAPI + SQLite service that helps patients describe general health concerns in **English, Kannada, Hindi, or Tamil** (with architecture ready for all 22 Indian scheduled languages), producing a structured clinical summary for **healthcare professional triage and review**.
+A responsive web application and mobile app (React Native + Expo) backed by a FastAPI + SQLite service that helps patients describe general health concerns in their native language (**English, Kannada, Hindi, or Tamil**, with architecture ready for all 22 Indian scheduled languages), producing a structured clinical summary for **healthcare professional triage and review**.
 
 > **Safety Notice:** This is an educational proof-of-concept, not a clinically validated medical device. It never diagnoses, never recommends medication or dosages, and never concludes that a patient is "safe". Use **synthetic data only**.
 
 ```
-HealthAssistant/
-  backend/         FastAPI + SQLite (questionnaire rules, safety scanner, translation/STT interfaces, modern clinician web dashboard)
-  mobile/          Expo + TypeScript + React Native app (unified intake questionnaire, 0-10 severity scale, voice input)
-  model-servers/   Self-hosted AI4Bharat IndicTrans2 (translation) + IndicConformer (speech) servers
+nalam/
+  apps/
+    api/              FastAPI + SQLite (intake rules, safety scanner, clinical dashboard)
+    mobile/           Expo + TypeScript + React Native app (patient intake, 0-10 severity, voice)
+  services/           Self-hosted AI4Bharat IndicTrans2 (translation) + IndicConformer (STT)
+  scripts/            Development orchestration & verification tooling (./scripts/dev.sh)
   docker-compose.yml  One-command container orchestration for backend & database
 ```
 

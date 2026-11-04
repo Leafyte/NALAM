@@ -19,7 +19,7 @@ export default function Review() {
   const router = useRouter();
   const { language, services, sessionId, setSummary } = useSession();
   const t = tr(language);
-  const { state, loading, saving, error, editingId, setEditingId, save, refresh } = useIntake();
+  const { state, loading, saving, error, saveError, editingId, setEditingId, save, refresh } = useIntake();
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -51,6 +51,7 @@ export default function Review() {
         <View style={[styles.box, confirmed && styles.boxOn]}>{confirmed ? <T variant="small" bold color="#fff">✓</T> : null}</View>
         <T variant="small" bold style={{ flex: 1 }}>{t.confirm}</T>
       </Pressable>
+      {saveError ? <T variant="small" color={colors.danger} accessibilityRole="alert">{saveError.code === 'network' ? t.serverProblem : saveError.message}</T> : null}
       {submitError ? <T variant="small" color={colors.danger} accessibilityRole="alert">{submitError}</T> : null}
       <Button title={submitting ? t.submitting : t.submit} onPress={onSubmit} disabled={!confirmed || !!editingId} loading={submitting} />
       <FooterNote />

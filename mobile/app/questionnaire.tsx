@@ -25,7 +25,7 @@ export default function Questionnaire() {
   const router = useRouter();
   const { language, services, sessionId } = useSession();
   const t = tr(language);
-  const { state, loading, saving, error, editingId, setEditingId, save, refresh } = useIntake();
+  const { state, loading, saving, error, saveError, editingId, setEditingId, save, refresh } = useIntake();
 
   const allItems = state ? state.items : [];
   const editingItem = editingId ? allItems.find((i) => i.question.id === editingId) : undefined;
@@ -76,6 +76,11 @@ export default function Questionnaire() {
 
   const footer = (
     <View>
+      {saveError ? (
+        <T variant="small" color={colors.danger} style={{ marginBottom: 8 }} accessibilityRole="alert">
+          {saveError.code === 'network' ? t.serverProblem : saveError.message}
+        </T>
+      ) : null}
       <View style={styles.btnRow}>
         {!question.required ? (
           <Button

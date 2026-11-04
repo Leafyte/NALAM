@@ -5,3 +5,5 @@ __pycache__/
 .pytest_cache/
 mobile/node_modules/
 mobile/.expo/
+web/dist/
+web/node_modules/

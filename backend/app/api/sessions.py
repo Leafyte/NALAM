@@ -113,6 +113,8 @@ def submit_answer(sid: str, body: AnswerIn):
     q = QUESTIONS_BY_ID.get(body.question_id)
     if q is None:
         raise api_error(422, "unknown_question", "Unknown question id")
+
+    # Step 1: Read session and validate applicability in a read context
     with connect() as conn:
         s = _session(conn, sid)
         if s["status"] != "in_progress":
@@ -122,27 +124,31 @@ def submit_answer(sid: str, body: AnswerIn):
             raise api_error(422, "question_not_applicable", "This question does not apply to the current answers")
         if body.skipped and q.required:
             raise api_error(422, "required_question", "This question cannot be skipped")
-        lang = body.language or s["language"]
-        text = body.text
-        if q.kind == "severity" and not body.skipped:
-            sev = summary_service.parse_severity(text)
-            if sev is None:
-                raise api_error(422, "invalid_severity", "Severity must be a number from 0 to 10")
-            text = str(sev)
-
         existing = rows.get(q.id)
-        original = existing["original_text"] if existing else text
-        edited = 1 if (existing and text != original and not body.skipped) else (existing["edited"] if existing else 0)
 
-        translated, provider, status = None, None, "not_needed"
-        if not body.skipped:
-            if body.translated_text and lang != "en":
-                translated, provider, status = body.translated_text.strip(), "client", "ok"
-            elif q.kind == "severity":
-                status = "not_needed"
-            else:
-                translated, provider, status = _translate_to_english(text, lang)
+    # Step 2: Compute parsed text and perform external translation OUTSIDE the database lock
+    lang = body.language or s["language"]
+    text = body.text
+    if q.kind == "severity" and not body.skipped:
+        sev = summary_service.parse_severity(text)
+        if sev is None:
+            raise api_error(422, "invalid_severity", "Severity must be a number from 0 to 10")
+        text = str(sev)
 
+    original = existing["original_text"] if existing else text
+    edited = 1 if (existing and text != original and not body.skipped) else (existing["edited"] if existing else 0)
+
+    translated, provider, status = None, None, "not_needed"
+    if not body.skipped:
+        if body.translated_text and lang != "en":
+            translated, provider, status = body.translated_text.strip(), "client", "ok"
+        elif q.kind == "severity":
+            status = "not_needed"
+        else:
+            translated, provider, status = _translate_to_english(text, lang)
+
+    # Step 3: Fast write transaction to persist answer
+    with connect() as conn:
         conn.execute(
             """INSERT INTO answers (session_id, question_id, text, original_text, language, input_mode,
                   translated_text, translation_provider, transcript_confidence, edited, skipped, updated_at)
@@ -173,6 +179,8 @@ def submit_session(sid: str, body: SubmitIn):
     """Patient confirms accuracy; the structured summary is generated and stored."""
     if not body.confirmed:
         raise api_error(400, "not_confirmed", "The patient must confirm the answers are accurate")
+
+    # Step 1: Read session and validate completeness
     with connect() as conn:
         s = _session(conn, sid)
         if s["status"] == "submitted":
@@ -183,13 +191,20 @@ def submit_session(sid: str, body: SubmitIn):
         missing = [q.id for q in flow if q.id not in rows]
         if missing:
             raise api_error(409, "incomplete", f"Unanswered questions: {', '.join(missing)}")
-        # retry translation for Kannada answers that have none yet
-        for qid, r in rows.items():
-            if not r["skipped"] and r["language"] != "en" and not r["translated_text"] and QUESTIONS_BY_ID[qid].kind != "severity":
-                t, prov, _ = _translate_to_english(r["text"], r["language"])
-                if t:
-                    conn.execute("UPDATE answers SET translated_text=?, translation_provider=? WHERE session_id=? AND question_id=?",
-                                 (t, prov, sid, qid))
+
+    # Step 2: Retry missing translations OUTSIDE the database lock
+    pending_translations: dict[str, tuple[str, str]] = {}
+    for qid, r in rows.items():
+        if not r["skipped"] and r["language"] != "en" and not r["translated_text"] and QUESTIONS_BY_ID[qid].kind != "severity":
+            t, prov, _ = _translate_to_english(r["text"], r["language"])
+            if t:
+                pending_translations[qid] = (t, prov)
+
+    # Step 3: Fast write transaction to update translations, persist summary, and close session
+    with connect() as conn:
+        for qid, (t, prov) in pending_translations.items():
+            conn.execute("UPDATE answers SET translated_text=?, translation_provider=? WHERE session_id=? AND question_id=?",
+                         (t, prov, sid, qid))
         rows = _rows(conn, sid)
         summary = summary_service.build_summary(s, rows, flow)
         now = _now()

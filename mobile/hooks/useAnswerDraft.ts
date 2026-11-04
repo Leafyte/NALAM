@@ -30,14 +30,24 @@ export function useAnswerDraft(question: Question | null, language: Language, in
 
   const toggleRecord = useCallback(async () => {
     setNote(null);
-    try {
-      if (phase === 'idle') {
-        if (!(await start())) { setNote(t.micDenied); return; }
+    if (phase === 'idle') {
+      try {
+        const ok = await start();
+        if (!ok) {
+          setNote(t.micDenied);
+          return;
+        }
         setPhase('recording');
-        return;
+      } catch {
+        setPhase('idle');
+        setNote(t.micDenied);
       }
-      if (phase === 'recording') {
-        setPhase('transcribing');
+      return;
+    }
+
+    if (phase === 'recording') {
+      setPhase('transcribing');
+      try {
         const uri = await stop();
         if (!uri) throw new Error('no audio');
         const r = await api.transcribe(uri, language);
@@ -46,18 +56,26 @@ export function useAnswerDraft(question: Question | null, language: Language, in
           const parsed = parseSeverity(r.text);
           if (parsed !== null) finalText = String(parsed);
         }
-        setText(finalText); setMode('voice'); setConfidence(r.confidence); setLow(r.low_confidence); setMock(r.is_mock);
+        setText(finalText);
+        setMode('voice');
+        setConfidence(r.confidence);
+        setLow(r.low_confidence);
+        setMock(r.is_mock);
         setNote(t.checkTranscript);
         if (language !== 'en' && services?.translation.available) {
-          try { setPreview((await api.translate(r.text, language, 'en')).translation); } catch { setPreview(null); }
+          try {
+            setPreview((await api.translate(r.text, language, 'en')).translation);
+          } catch {
+            setPreview(null);
+          }
         }
+      } catch (e) {
+        setNote(errorMessage(e).code === 'stt_unavailable' ? t.voiceUnavailable : t.serverProblem);
+      } finally {
+        setPhase('idle');
       }
-    } catch (e) {
-      setNote(errorMessage(e).code === 'stt_unavailable' ? t.voiceUnavailable : t.serverProblem);
-    } finally {
-      setPhase((p) => (p === 'recording' ? 'recording' : 'idle'));
     }
-  }, [phase, start, stop, language, services, t]);
+  }, [phase, start, stop, language, services, t, question]);
 
   const readAloud = useCallback(async () => {
     if (!question) return;

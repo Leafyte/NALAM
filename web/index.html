@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nalam — Clinical Triage & Intake Dashboard</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="./src/styles/main.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- 1. Fixed Left Sidebar Mount -->
+  <aside id="sidebar-mount"></aside>
+
+  <!-- 2. Main Content Canvas -->
+  <main class="main-canvas">
+    <!-- Top Navigation Bar Mount -->
+    <header id="topbar-mount"></header>
+
+    <!-- Content Canvas Body -->
+    <div class="content-canvas">
+      <!-- Page Header -->
+      <section class="page-header">
+        <div>
+          <h1 class="page-title">Clinical Intake & Triage Overview</h1>
+          <p class="page-subtitle">Real-time patient self-reports, AI4Bharat translation audits & deterministic red-flag safety scanning</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="header-refresh-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <polyline points="23 20 23 14 17 14"></polyline>
+              <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"></path>
+            </svg>
+            Refresh Queue
+          </button>
+          <button class="btn btn-primary" id="header-demo-cases-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            + Demo Cases
+          </button>
+        </div>
+      </section>
+
+      <!-- Row 1: Mixed Visual Treatment Metrics Cards -->
+      <section id="metrics-mount"></section>
+
+      <!-- Row 2: Two-Column Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Left Column: Data Visualization Chart & Case Intake Queue -->
+        <div style="display: flex; flex-direction: column; gap: 28px;">
+          <section id="chart-mount"></section>
+          <section id="cases-mount"></section>
+        </div>
+
+        <!-- Right Column: Collaboration & Widget Stack -->
+        <div class="sidebar-widget-stack" style="display: flex; flex-direction: column; gap: 24px;">
+          <!-- Actionable Emergency Card -->
+          <div class="actionable-card danger">
+            <div class="actionable-icon">⚠️</div>
+            <div class="actionable-text">
+              <div class="actionable-title">Urgent Red Flag Protocol</div>
+              <div class="actionable-meta">Severe chest pain / respiratory distress alerts trigger automatic 112 escalation.</div>
+            </div>
+          </div>
+
+          <!-- Progress Gauge Mount -->
+          <div id="gauge-mount"></div>
+
+          <!-- Media / Shift Stopwatch Widget Mount -->
+          <div id="timer-mount"></div>
+
+          <!-- Clinical Duty Team List Mount -->
+          <div id="team-mount"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Slide-Over Patient Detail Drawer Mount -->
+<div id="drawer-mount"></div>
+
+<!-- Application TypeScript Entrypoint -->
+<script type="module" src="./src/main.ts"></script>
+
+</body>
+</html>
+

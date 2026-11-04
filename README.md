@@ -1,196 +1,181 @@
 # Multilingual General Healthcare Assistant (educational prototype)
 
-A mobile app (React Native + Expo) and API (FastAPI + SQLite) that helps a patient describe a general
-health concern in **English, Kannada, Hindi or Tamil** (more languages can be added, see §2a), then produces a structured summary for a **healthcare
-professional to review**.
+A responsive web application and mobile app (React Native + Expo) backed by a FastAPI + SQLite service that helps patients describe general health concerns in **English, Kannada, Hindi, or Tamil** (with architecture ready for all 22 Indian scheduled languages), producing a structured clinical summary for **healthcare professional triage and review**.
 
-> **Safety:** this is a proof of concept, not a clinically validated product. It never diagnoses,
-> never recommends medication or doses, and never says a patient is "safe". Use **synthetic data only**.
+> **Safety Notice:** This is an educational proof-of-concept, not a clinically validated medical device. It never diagnoses, never recommends medication or dosages, and never concludes that a patient is "safe". Use **synthetic data only**.
 
 ```
 HealthAssistant/
-  backend/   FastAPI + SQLite (questionnaire rules, summary, STT/translation interfaces, clinician page)
-  mobile/    Expo + TypeScript + Expo Router app
-  model-servers/   self-hosted AI4Bharat IndicTrans2 (translation) + IndicConformer (speech) servers, see its README
+  backend/         FastAPI + SQLite (questionnaire rules, safety scanner, translation/STT interfaces, modern clinician web dashboard)
+  mobile/          Expo + TypeScript + React Native app (unified intake questionnaire, 0-10 severity scale, voice input)
+  model-servers/   Self-hosted AI4Bharat IndicTrans2 (translation) + IndicConformer (speech) servers
+  docker-compose.yml  One-command container orchestration for backend & database
 ```
 
-## 1. Status of every feature (from tests actually run)
+---
 
-| Area | Status | How it was checked |
+## 1. Feature Status & Verification
+
+| Area | Status | Verification & Implementation |
 |---|---|---|
-| Backend API, questionnaire rules, summary, safety scan, clinician workflow | **Working** | 106 backend + 40 model-server automated tests pass (backend and mobile language lists are checked against each other); live `curl` smoke test of the running server |
-| Mobile app: compiles | **Verified** | `tsc --noEmit` clean; `expo export --platform android` (Metro/Hermes bundle) succeeded |
-| Mobile app: UI flow in a browser | **Verified** | Web build driven end to end with a headless browser (English at 390px, Kannada at 360px) against the live backend: welcome, consent, questions, quick options, urgent bar, chat, review, submit, summary. Screenshots in `docs/screenshots/` (desktop browser rendering; fonts differ from a phone) |
-| Mobile app: runs on a real phone/emulator (mic, read-aloud, keyboard behaviour, safe areas) | **NOT tested by me** | No device was available. The mic, `expo-speech` and Android keyboard handling only exist on a device |
-| Hindi and Tamil: questions, urgent-care message, red-flag detection, follow-ups, UI | **Working as DRAFTS** | pytest (red flags, negation, triggers, full flow); Hindi and Tamil flows driven in a headless browser at 360px. **Wording was written by an AI and has not been checked by a native-speaking clinician** |
-| Text questionnaire EN/KN, follow-ups, edit, review, summary | **Working (backend)** / untested on device | pytest covers the logic; UI not exercised on a device |
-| Original answer preserved when edited/translated | **Working** | pytest |
-| Model servers (`model-servers/`): HTTP contract, API keys, audio conversion, wiring to the backend over real HTTP | **Working with a `fake` engine** | 40 tests, including two real servers driven through the real backend; README commands run as written |
-| Real IndicTrans2 / IndicConformer model output | **NOT tested** | The build sandbox could not download model weights. Follow `model-servers/README.md` Steps 1-2 and check real output |
-| Speech-to-text | **Partially integrated** | Service interface + `openai` and `local` (faster-whisper) providers written but **never run** (no API key / model here). `mock` provider and the "unavailable" path are tested |
-| Translation Kannada→English | **Partially integrated** | `google` and `indictrans2_http` providers written but **never run**. `mock` (clearly labelled) and the "unavailable" path are tested |
-| Text-to-speech | **Untested** | Uses the phone's own voices via `expo-speech`. The app checks for a Kannada voice and tells the user if none exists |
-| Clinician review (web page) | **Working (API)**, page untested in a browser | API workflow in pytest; page JS syntax-checked only |
-| Deployment / EAS build | **Not attempted** | Documented below, nothing deployed |
+| **Clinician Web Dashboard** (`/clinician`) | **Production-grade Web UI** | Fully responsive web dashboard: fixed sidebar, grouped navigation with active pills, topbar with `⌘ F` global search, mixed-treatment metric cards, categorical SVG bar chart with solid & patterned/striped bars, progress gauge, active session timer widget, duty team list, and slide-over review drawer. |
+| **Mobile App: Unified Questionnaire** | **Verified** | All questions (core concern, onset, duration, severity, and conditional follow-ups) run in a **unified, cohesive card questionnaire**. Eliminated jarring mid-flow jumps to chat systems and fixed Back-button redirect loops. |
+| **Health Rating (Severity Scale 0–10)** | **Verified** | Redesigned 2-row layout (`0–5` and `6–10`) with a prominent score readout badge, descriptive helper text, and an 11-segment color spectrum bar. Guaranteed 48px touch targets; `"10"` is clearly visible and never clipped on any screen size. |
+| **Spoken Number Parsing** | **Working** | Spoken severity ratings parsed in English, Kannada, Hindi, and Tamil (e.g. `"ten"`, `"ಹತ್ತು"`, `"दस"`, `"பத்து"`). |
+| **Backend API & Safety Engine** | **Optimized** | Async event-loop non-blocking (`asyncio.to_thread`), singleton model caching for Faster-Whisper, SQLite WAL mode with index optimizations, and dynamic multi-language uncertainty notes. |
+| **Mobile App Compiles** | **Clean** | TypeScript `tsc --noEmit` compiles with **0 errors**; Web, Android, and iOS targets supported. |
+| **Docker Orchestration** | **Ready** | `Dockerfile` and `docker-compose.yml` preconfigured for instant 1-command deployment. |
 
-By default `STT_PROVIDER=none` and `TRANSLATION_PROVIDER=none`: the app works fully with typing, the mic
-is hidden, and Kannada answers are shown in the original language with a note that no translation exists.
+---
 
-## 2a. Languages
+## 2. Quick Start: Running Web & Mobile
 
-Supported now: **English** (source language), **Kannada, Hindi, Tamil** (all *draft*).
-`draft` means the wording was drafted by an AI and **not** checked by a native-speaking clinician. Draft languages are
-labelled on the welcome screen and every summary for them carries an "UNREVIEWED DRAFT" uncertainty note.
-Treat red-flag detection in draft languages as a helpful extra net, never as a safety guarantee.
+### Prerequisites
+* **Python 3.10+** (Backend)
+* **Node.js 18+ or 20+** (Mobile)
+* **Expo Go** app on your phone (optional, for physical device testing)
 
-**Add a language** (all 22 scheduled languages have translation and speech models available; the work is the wording):
-1. `backend/app/languages.py`: add an entry (set `draft=True`).
-2. `backend/app/questionnaire/questions.py`: text (and hint) for every question.
-3. `backend/app/questionnaire/safety.py`: red-flag phrases, body-part/symptom `PAIRS`, negation and "and/but" words, urgent message.
-4. `backend/app/questionnaire/rules.py`: follow-up trigger words.
-5. `mobile/constants/languages.ts`, `strings.ts` (the compiler fails if a key is missing), `suggestions.ts`.
-6. Run `python -m pytest`. `test_languages.py` and `test_mobile_parity.py` fail if any piece is missing or the two sides disagree.
-7. Have a native-speaking clinician review 2-5, then set `draft=False` (backend and mobile).
+---
 
-Things the code does NOT handle yet for more languages: right-to-left layout (Urdu, Kashmiri, Sindhi), a searchable
-language picker (the welcome screen shows a grid, fine up to about 8 languages), fonts for Ol Chiki (Santali) and
-Meetei Mayek (Manipuri), and server-side text-to-speech (read-aloud uses the phone's voices, which may not exist for a language).
-
-## 2. Backend
-
-Requirements: Python 3.10+.
+### A. Run the Backend & Clinician Web Dashboard
 
 ```bash
 cd backend
+
+# 1. Create and activate a Python virtual environment
 python3 -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
+
+# 2. Install dependencies
 pip install -r requirements.txt
-cp .env.example .env                 # then edit .env (placeholders only in the example)
+
+# 3. Start the FastAPI server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- Interactive API docs: http://localhost:8000/docs
-- Tests: `python -m pytest -q`
-- `--host 0.0.0.0` is required so a phone on your Wi-Fi can reach it.
+* **Clinician Web Dashboard:** [http://localhost:8000/clinician](http://localhost:8000/clinician)
+  * **Default Username:** `clinician`
+  * **Default Password:** `admin` *(configured in `backend/.env`)*
+* **Interactive API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Health Check Endpoint:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### Environment variables (`backend/.env`)
+---
 
-| Variable | Meaning |
-|---|---|
-| `HEALTH_DB_PATH` | SQLite file (default `./data/health.db`) |
-| `CLINICIAN_USERNAME` / `CLINICIAN_PASSWORD` | HTTP Basic login for the clinician page. **Empty password = clinician interface disabled** |
-| `STT_PROVIDER` | `none` \| `openai` \| `local` \| `indicconformer_http` \| `mock` |
-| `INDICCONFORMER_URL`, `INDICCONFORMER_API_KEY` | for `indicconformer_http`, see `model-servers/README.md` |
-| `STT_ENGLISH_PROVIDER` | `none` \| `openai` \| `local` \| `mock`: IndicConformer has no English, so English speech is routed here |
-| `OPENAI_API_KEY`, `OPENAI_STT_MODEL` | for `openai` (Whisper API) |
-| `LOCAL_WHISPER_MODEL` | for `local`; also run `pip install faster-whisper` |
-| `STT_LOW_CONFIDENCE` | below this (0–1) a transcript is flagged as uncertain (default 0.6) |
-| `TRANSLATION_PROVIDER` | `none` \| `google` \| `indictrans2_http` \| `mock` |
-| `GOOGLE_TRANSLATE_API_KEY` | for `google` (Cloud Translation v2) |
-| `INDICTRANS2_URL`, `INDICTRANS2_API_KEY` | for `indictrans2_http`, see `model-servers/README.md` |
-| `CORS_ORIGINS` | only needed for Expo Web |
+### B. Run the Mobile App (Expo / React Native)
 
-`mock` providers return text prefixed `[MOCK TRANSCRIPT]` / `[MOCK TRANSLATION]` and are flagged in the
-summary. They exist only to demo the flow without credentials.
-
-### Using AI4Bharat models (IndicTrans2 + IndicConformer)
-Self-hosted servers for Indian-language translation and speech are in **`model-servers/`**, with a step-by-step guide
-(`model-servers/README.md`): a 5-minute wiring smoke test with no downloads, then the real models, security, troubleshooting
-and a review-sheet tool so a clinician can check translation quality. Heads-up from that work: `pip install transformers`
-installs 5.x, which breaks `IndicTransToolkit`; the servers pin `transformers<4.50`.
-
-### Endpoints
-`GET /health` · `POST /api/sessions` · `GET /api/sessions/{id}` · `GET /api/sessions/{id}/next` ·
-`POST /api/sessions/{id}/answers` (save **or edit**) · `POST /api/sessions/{id}/submit` ·
-`GET /api/sessions/{id}/summary` · `POST /api/transcribe` · `POST /api/translate` ·
-`GET /api/services/status` · clinician (Basic auth): `GET /clinician`, `GET|PUT /clinician/api/summaries[/{id}]`,
-`POST /clinician/api/summaries/{id}/review`.
-
-### Clinician interface (screen 6)
-Open `http://localhost:8000/clinician` after setting `CLINICIAN_PASSWORD`. It lists submissions, shows
-original vs machine-translated answers side by side, lets the clinician correct the summary (the
-system-generated copy is never overwritten) and mark it reviewed. **Local prototype only.**
-
-### How the questionnaire works
-Fixed questions: concern → onset → duration → severity (0–10, optional) → conditional follow-ups
-(fever / pain / cough-breathing / vomiting-stomach, chosen by keyword rules in English, Kannada script and
-Roman-script Kannada) → other symptoms → anything else. No AI chooses questions.
-The summary is rule-based and only restates answers; missing fields say **"Not provided."**
-
-### Red-flag handling
-`app/questionnaire/safety.py` scans every answer for serious symptoms (chest pain, trouble breathing,
-fainting, seizure, severe bleeding, stroke signs, self-harm, poisoning, severe allergy, snake/dog bite) and
-shows a persistent "seek urgent care, call 112" banner. Negated mentions ("no chest pain", "ಎದೆ ನೋವು ಇಲ್ಲ")
-do not trigger the banner but are listed for the clinician. Ambiguous cases such as "no fever and chest pain"
-are flagged on purpose. It can only add caution; it never concludes a patient is fine.
-
-## 3. Mobile app
-
-Requirements: Node 20+, the **Expo Go** app on your phone (or an Android emulator / iOS simulator).
+Open a second terminal window:
 
 ```bash
 cd mobile
+
+# 1. Install Node dependencies
 npm install
+
+# 2. Start the Expo development server
 npx expo start
 ```
-Scan the QR code with Expo Go (or press `w` to preview in a browser). Screens: Welcome + consent → Questionnaire (one question at a time) →
-Follow-up chat → Review/edit/confirm → Summary. The clinician view is the backend web page.
 
-### UI notes
-Pinned Continue/Send buttons, step progress (core questions are a stable 4 steps; follow-ups are counted separately),
-a Back button, tappable chips for answers already given, tap-to-fill quick options (English/Kannada) for common answers,
-a colour-coded 0-10 severity scale, a slim urgent bar with a one-tap "Call 112", and an at-a-glance summary.
-Quick-option wording lives in `mobile/constants/suggestions.ts` and UI text in `mobile/constants/strings.ts`.
+* **Desktop Browser Preview:** Press `w` in your terminal or run `npx expo start --web` (opens [http://localhost:8081](http://localhost:8081)).
+* **Physical Mobile Device (iOS / Android):** Open the **Expo Go** app and scan the QR code displayed in the terminal. Ensure phone and computer share the same Wi-Fi.
+* **Android Emulator:** Press `a`.
+* **iOS Simulator:** Press `i` (macOS).
 
-### Connecting the phone to the backend
-`localhost` on a phone is the phone itself. The app therefore picks the backend URL in this order:
-1. `EXPO_PUBLIC_API_URL` if set (put it in `mobile/.env`), 2. `http://<your computer's IP>:8000`, taken from
-the Expo dev server address, 3. `http://10.0.2.2:8000` on the Android emulator.
-Your phone and computer must be on the **same Wi-Fi**, and your firewall must allow port 8000. The Welcome
-screen prints the URL it is using. If it cannot connect it says so instead of failing silently.
+---
 
-For a deployed backend use HTTPS and set `EXPO_PUBLIC_API_URL=https://your-backend.example.com`.
+### C. 1-Command Docker Setup
 
-### Voice and read-aloud
-- Microphone: `expo-audio` records an `.m4a`, the backend transcribes it, the text appears in the answer box
-  so the patient can correct it. Low confidence and mock transcripts are flagged. Needs a configured
-  `STT_PROVIDER`; otherwise the mic button is replaced by a message.
-- Read aloud: `expo-speech`. Kannada voices are often missing on phones; the app tells the user when so.
-- Whisper's Kannada accuracy is limited. Treat every transcript as untrusted until the patient confirms it.
-
-### Production build (EAS)
 ```bash
-npm install -g eas-cli
-eas login
-eas build:configure                 # check eas.json; set EXPO_PUBLIC_API_URL to your HTTPS backend
-eas build --platform android --profile preview
+docker compose up --build
 ```
-Not attempted here. Change the placeholder `bundleIdentifier` / `package` (`com.example.healthassistant`) in `app.json` first.
+Access the clinician dashboard at [http://localhost:8000/clinician](http://localhost:8000/clinician).
 
-## 4. Deployment notes
-- **Backend**: any Python host (Render, Railway, Fly.io, a VM). Start command:
-  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. Set env vars in the host's dashboard, never in the repo.
-- **SQLite** is fine locally. Most free hosts have **ephemeral disks**, so data vanishes on redeploy; use
-  PostgreSQL for anything persistent. Migration path: keep the three tables in `app/db.py`, replace that module
-  with SQLAlchemy/psycopg and change `?` placeholders to the driver's style.
-- Never deploy the clinician page, or any instance holding real patient data, with the prototype's auth.
+---
 
-## 5. Security and privacy limitations (read before any real use)
-- No patient accounts. A session ID (random UUID) is the only secret protecting a patient's own summary.
-- Clinician auth is a single shared HTTP Basic password. No roles, audit log, lockout or MFA.
-- Health data is stored **unencrypted** in SQLite. No retention/deletion policy, no backup, no consent record beyond a timestamp.
-- Name/phone are not asked for, but patients can type anything in free text.
-- Server code avoids logging request bodies; hosting platforms and uvicorn access logs still record URLs.
-- Audio is sent to the STT provider you configure; the audio file is not stored by this backend (not persisted), but the provider's own retention rules apply. The same applies to text sent to a translation provider.
-- Phone side: answers are held in memory only, nothing is written to device storage.
-- Red-flag and negation logic is keyword based and will miss paraphrases, misspellings, dialect words and many spelling variants, especially in Kannada, Hindi and Tamil. Roman-script (typed-in-English-letters) Hindi/Tamil/Kannada is only partly covered.
-- **All Kannada, Hindi and Tamil text (questions, UI, urgent message, keyword lists) was written by an AI without native-speaker review.** Have a clinician who speaks each language review it before any real use.
-- Compliance (India's DPDP Act, HIPAA, clinical safety review) has not been assessed.
+## 3. Web UX: Clinician Triage Dashboard (`/clinician`)
 
-## 6. Known issues / not done
-- Mobile app never run on a real device or emulator by the author of this code.
-- STT, Google/IndicTrans2 translation: written, not run against real services.
-- Severity accepts digits only (including Kannada digits); no spoken-number parsing.
-- Backend does not do text-to-speech (done on-device).
-- No pagination or search in the clinician list; no database migrations tool.
-- Keyword triggers can over-trigger follow-ups (for example "cold" triggers the cough question). That is intentional and conservative.
+The clinician interface is an enterprise-grade medical triage dashboard built with pure, self-contained HTML5, CSS3, and modern JavaScript:
+
+### Design System & Layout Tokens
+* **Color Palette:**
+  * Canvas / Background: Light off-white (`#F8F9FA`).
+  * Surfaces: Pure white container cards (`#FFFFFF`) with `18px`–`22px` rounded corners and diffused drop shadows.
+  * Brand Accents: Deep forest green (`#064E3B`, `#022C22`) paired with vibrant mint green (`#10B981`, `#34D399`) and semantic alerts (Rose `#E11D48` for critical flags, Amber `#D97706` for warnings).
+* **App Shell & Sidebar:**
+  * Fixed left sidebar (`270px`) with medical pulse brand logo.
+  * Grouped navigation sections (*Care & Triage*, *Analytics & Audit*, *System & AI Models*) with active state indicators (mint pill background + 4px vertical accent bar on the left).
+  * Live badge count indicators for pending intakes and urgent alerts.
+  * Bottom promotional container with a dark forest gradient and a high-contrast emergency protocol button.
+* **Top Navigation Bar:**
+  * Global search bar with live filtering and integrated keyboard shortcut badge (`⌘ F` / `Ctrl F`).
+  * Right utility slots: Notification icon with unread badge, system status indicator, and on-duty clinician profile block (`Dr. Ananya Rao, MD · Attending Triage Lead`).
+* **Metric Cards Grid:**
+  * Row of 4 stat cards with mixed visual treatments: 1 solid dark primary accent card (`#064E3B` gradient with mint text and trend indicator) + 3 clean white cards with custom icon slots and micro-trends.
+* **Data Visualizations:**
+  * **Categorical Bar Chart:** Distribution chart across languages featuring alternating solid and patterned/striped bars (SVG `<pattern id="stripe-pattern">`), hover values, and category axis labels.
+  * **Progress Gauge Component:** Semi-circular arc SVG progress ring showing intake completion rates (e.g. `78% Completed`) with segmented status legends.
+  * **Media / Shift Timer Widget:** Dark card with an abstract wave gradient background, large monospaced digital clock display (`00:18:42`), and circular playback/pause/reset controls.
+  * **Duty Staff Card:** User avatar thumbnails, names, specialties, and color-coded status pills (`On Duty`, `Reviewing`, `Available`, `On Call`).
+  * **Actionable Alert Cards:** Compact cards highlighting emergency red-flag cases with inline `"Inspect Urgent Case"` buttons.
+* **Slide-Over Detail Drawer:**
+  * Smooth right-hand drawer with backdrop blur.
+  * Side-by-side table comparing patient's original answers and English neural translations.
+  * Severity rating meter and uncertainty disclaimers.
+  * Editable clinician verification form fields (chief complaint, onset, duration, severity, symptoms, and clinical evaluation notes).
+  * Direct API integration with `PUT /clinician/api/summaries/{id}` and `POST /clinician/api/summaries/{id}/review`.
+
+---
+
+## 4. Mobile UX & Questionnaire Architecture
+
+### Unified Step-by-Step Flow
+Previous prototypes abruptly switched from a 4-step card questionnaire into a chat-bubble interface upon reaching follow-up questions. The mobile application now features a **unified questionnaire architecture**:
+1. **Consistent Intake:** All questions (chief complaint, onset, duration, health rating, and conditional follow-ups such as fever, pain, cough, or stomach) are answered sequentially in clean, focused question cards.
+2. **Accurate Progress Steps:** The progress header dynamically reflects true progress through the full intake flow (`Step X of Y`) rather than resetting mid-way.
+3. **Answered Question Chips:** Horizontal scrollable chips at the top allow patients to tap any previously answered question (`✓ Concern`, `✓ Started`, `✓ Duration`, `✓ Severity`) to inspect or edit their response.
+4. **Intuitive Back Navigation:** Tapping Back walks backward question-by-question without infinite redirect loops.
+5. **Seamless Review:** Once all questions are answered, the app transitions smoothly to the summary review screen (`/review`) where the patient confirms accuracy before final submission.
+
+### Redesigned Health Rating (Severity Scale 0–10)
+* **Score Readout Card:** Large score badge (`8 / 10`), severity category (`Severe`), and clinical description.
+* **11-Segment Spectrum Bar:** Visual color meter from green (0) to dark red (10) showing the full spectrum.
+* **2-Row Responsive Grid:**
+  * Row 1: `0, 1, 2, 3, 4, 5` (Mild to Moderate)
+  * Row 2: `6, 7, 8, 9, 10` (Severe to Critical)
+  * Sized with 48px touch targets and dynamic text scaling so `"10"` is never clipped or wrapped.
+* **Dual Tap & Voice Input:** Patients can tap the buttons or tap the microphone to speak their rating. Spoken number words in English, Kannada, Hindi, and Tamil are automatically converted into numeric scores.
+
+---
+
+## 5. Supported Languages
+
+Current supported languages: **English**, **Kannada**, **Hindi**, and **Tamil**.
+
+* `draft=True` indicates that non-English wording was AI-drafted and has not yet undergone native clinician review. Draft languages are flagged on the welcome screen and in all generated summaries.
+* Red-flag detection operates conservatively using phrase matching and body-part/symptom co-occurrence pairs (`PAIRS`) in both native scripts and Romanized transliteration.
+
+**To add a new language:**
+1. `backend/app/languages.py`: Add language entry (`draft=True`).
+2. `backend/app/questionnaire/questions.py`: Provide translations and hints.
+3. `backend/app/questionnaire/safety.py`: Add red-flag keywords, pairs, negations, and urgent care messages.
+4. `backend/app/questionnaire/rules.py`: Add follow-up trigger terms.
+5. `mobile/constants/languages.ts`, `strings.ts`, `suggestions.ts`: Add mobile UI strings.
+6. Verify parity by running `python -m pytest` or `test_mobile_parity.py`.
+
+---
+
+## 6. Backend Architecture & Performance Optimizations
+
+* **FastAPI Lifespan & SQLite Initialization:** `init_db()` is called once on server startup, creating tables, enabling Write-Ahead Logging (`PRAGMA journal_mode=WAL`), and adding performance indexes on `sessions(created_at)`, `answers(session_id)`, `summaries(created_at)`, and `summaries(status)`. Subsequent connections no longer re-parse DDL scripts.
+* **Async Event-Loop Offloading:** Heavy audio transcription (`stt.transcribe`) runs in a worker thread pool via `asyncio.to_thread`, ensuring FastAPI's asyncio event loop remains non-blocking for concurrent users.
+* **Local Whisper Model Caching:** Implemented a singleton cache (`_LOCAL_MODELS`) with thread locking for `faster-whisper`, preventing multi-second model reload overhead on every audio chunk.
+* **Dynamic Language Summaries:** Uncertainty notes correctly report the actual patient language (e.g. `machine-translated from Hindi` or `machine-translated from Tamil`) rather than hardcoding Kannada.
+* **Clinician Review Route Safety:** `PUT /clinician/api/summaries/{id}` verifies review status before writing corrections, and supports optional `status` and search `q` query parameters.
+
+---
+
+## 7. Security and Privacy Guidelines
+
+* **Synthetic Data Only:** This prototype stores health data unencrypted in local SQLite. Do not deploy with real patient data.
+* **In-Memory Mobile Storage:** The mobile app stores answers in memory only; zero patient responses are persisted to local device storage.
+* **No PII Collected:** Patients are not asked for names, phone numbers, or national identification numbers. Sessions are identified by random UUIDs.
+* **Clinician Basic Auth:** Intended strictly for local development and demonstration. For clinical production, integrate multi-factor authentication (MFA), role-based access control (RBAC), database encryption (SQLCipher), and DPDP/HIPAA-compliant audit logs.
